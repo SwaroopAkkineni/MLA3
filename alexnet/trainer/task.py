@@ -117,16 +117,30 @@ class Fetcher:
         i = 0  #works
         totalImages = 0 #works
         labelChecker = [3] * 13 #works
-        while(i < 39):
+        while(totalImages < 39):# works
             label, files = self.examples[(self.current+i) % len(self.examples)]
             label = label.flatten()
             # If you are getting an error reading the image, you probably have
             # the legacy PIL library installed instead of Pillow
             # You need Pillow
-            channels = [ misc.imread(file_io.FileIO(f,'r')) for f in files]
-            x_batch.append(np.dstack(channels))
-            y_batch.append(label)
-            i += 1
+            if( labelChecker[np.argmax(label)] >0 ):
+                channels = [ misc.imread(file_io.FileIO(f,'r')) for f in files]
+                rot = random.randint(0,3)
+                rotFlip = random.randint(0,1)
+
+                if rot == 0:
+                	channels = np.rot90(channels)
+                if rot == 1:
+                	channels = np.rot90(channels,2)
+                if rot == 2:
+                	channels = np.rot90(channels,3)
+                if rotFlip == 0:
+                	channels = np.fliplr(channels)
+                x_batch.append(np.dstack(channels))
+                y_batch.append(label)
+                labelChecker[np.argmax(label)] = labelChecker[np.argmax(label)] - 1 #added
+                totalImages += 1#works #added
+            i +=1 #works
 
         self.current = (self.current + batchsize) % len(self.examples)
         return np.array(x_batch), np.array(y_batch)
@@ -155,7 +169,7 @@ class Fetcher:
                 	my_ch = np.rot90(channels,3)
                 if rotFlip == 0:
                 	my_ch = np.fliplr(my_ch)
-                x_batch.append(np.dstack(my_ch1))#x_batch.append(np.dstack(channels))
+                x_batch.append(np.dstack(my_ch))#x_batch.append(np.dstack(channels))
                 y_batch.append(label)
                 totalImages += 1
                 labelChecker[np.argmax(label)] = labelChecker[np.argmax(label)] - 1
