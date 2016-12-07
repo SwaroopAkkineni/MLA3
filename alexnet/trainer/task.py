@@ -127,6 +127,39 @@ class Fetcher:
         self.current = (self.current + batchsize) % len(self.examples)
         return np.array(x_batch), np.array(y_batch)
 
+'''
+    def load_batch(self,batchsize):
+        x_batch = []
+        y_batch = []
+        int i = 0;
+        totalImages = 0
+        temp = [3] * 13
+        while(totalImages < 39):
+            label, files = self.examples[(self.current+i) % len(self.examples)]
+            label = label.flatten()
+            i += 1
+            if( labelChecker[np.argmax(label)] >0 ):
+                channels = [ misc.imread(self.open_image(f)) for f in files]
+                rot = random.randint(0,3)
+                rotFlip = random.randint(0,1)
+
+                if rot == 0:
+                	my_ch = np.rot90(channels)
+                if rot == 1:
+                	my_ch = np.rot90(channels,2)
+                if rot == 2:
+                	my_ch = np.rot90(channels,3)
+                if rotFlip == 0:
+                	my_ch = np.fliplr(my_ch)
+                x_batch.append(np.dstack(my_ch1))#x_batch.append(np.dstack(channels))
+                y_batch.append(label)
+                totalImages += 1
+                labelChecker[np.argmax(label)] = labelChecker[np.argmax(label)] - 1
+
+        self.current = (self.current + batchsize) % len(self.examples)
+        return np.array(x_batch), np.array(y_batch)
+'''
+
 def network(inputs):
 #def alexnet_v2(inputs, num_classes=1000,is_training=True,dropout_keep_prob=0.5,spatial_squeeze=True,scope='alexnet_v2'):
     num_classes=13
