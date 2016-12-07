@@ -129,11 +129,14 @@ class Fetcher:
                 rotFlip = random.randint(0,1)
 
                 if rot == 0:
-                	channels = np.rot90(channels)
+                	#channels = np.rot90(channels)
+                    channels = misc.imrotate(channels, 90)
                 if rot == 1:
-                	channels = np.rot90(channels,2)
+                	#channels = np.rot90(channels,2)
+                    channels = misc.imrotate(channels, 180)
                 if rot == 2:
-                	channels = np.rot90(channels,3)
+                	#channels = np.rot90(channels,3)
+                    channels = misc.imrotate(channels, 270)
                 if rotFlip == 0:
                 	channels = np.fliplr(channels)
                 x_batch.append(np.dstack(channels))
