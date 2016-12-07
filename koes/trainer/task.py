@@ -22,16 +22,11 @@ from sklearn import preprocessing
 from scipy import misc
 
 import numpy as np
-import random
 
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 from tensorflow.python.lib.io import file_io
-
-slim = tf.contrib.slim
-trunc_normal = lambda stddev: tf.truncated_normal_initializer(0.0, stddev)
-
 
 
 # Basic model parameters as external flags.
@@ -106,7 +101,6 @@ class Fetcher:
           out = open(fname,'w')
           out.write(f.read())
           out.close()
-          #rotaoe90, flip90
           return open(fname)
         else:
           return open(path)
@@ -114,59 +108,51 @@ class Fetcher:
     def load_batch(self,batchsize):
         x_batch = []
         y_batch = []
-        for i in xrange(batchsize):
+        i = 0
+        totalImages = 0
+        labelChecker = [3] * 13
+        while(totalImages < 39):
             label, files = self.examples[(self.current+i) % len(self.examples)]
             label = label.flatten()
-            # If you are getting an error reading the image, you probably have
-            # the legacy PIL library installed instead of Pillow
-            # You need Pillow
-            channels = [ misc.imread(file_io.FileIO(f,'r')) for f in files]
-            x_batch.append(np.dstack(channels))
-            y_batch.append(label)
+            i = i + 1
+            if( labelChecker[np.argmax(label)] > 0 ):
+                channels = [ misc.imread(self.open_image(f)) for f in files]
+                rot = random.randint(0,3)
+                rotFlip = random.randint(0,1)
+
+                if rot == 0:
+                	my_ch = np.rot90(channels)
+                if rot == 1:
+                	my_ch = np.rot90(channels,2)
+                if rot == 2:
+                	my_ch = np.rot90(channels,3)
+                if rotFlip == 0:
+                	my_ch = np.fliplr(my_ch)
+
+                x_batch.append(np.dstack(my_ch))#x_batch.append(np.dstack(channels))
+                y_batch.append(label)
+                totalImages = totalImages + 1
+                labelChecker[np.argmax(label)] = labelChecker[np.argmax(label)] - 1
 
         self.current = (self.current + batchsize) % len(self.examples)
         return np.array(x_batch), np.array(y_batch)
 
-def network(inputs):
-#def alexnet_v2(inputs, num_classes=1000,is_training=True,dropout_keep_prob=0.5,spatial_squeeze=True,scope='alexnet_v2'):
-    num_classes=13
-    is_training=True
-    dropout_keep_prob=0.5
-    spatial_squeeze=True
-    scope='alexnet_v2'
-    with tf.variable_scope(scope, 'alexnet_v2', [inputs]) as sc:
-        end_points_collection = sc.name + '_end_points'
-        # Collect outputs for conv2d, fully_connected and max_pool2d.
-        with slim.arg_scope([slim.conv2d, slim.fully_connected, slim.max_pool2d], outputs_collections=[end_points_collection]):
-            net = slim.conv2d(inputs, 64, [11, 11], 4, padding='VALID', scope='conv1')
-            net = slim.max_pool2d(net, [3, 3], 2, scope='pool1')
-            net = slim.conv2d(net, 192, [5, 5], scope='conv2')
-            net = slim.max_pool2d(net, [3, 3], 2, scope='pool2')
-            net = slim.conv2d(net, 384, [3, 3], scope='conv3')
-            net = slim.conv2d(net, 384, [3, 3], scope='conv4')
-            net = slim.conv2d(net, 256, [3, 3], scope='conv5')
-            net = slim.max_pool2d(net, [3, 3], 2, scope='pool5')
-      # Use conv2d instead of fully_connected layers.
-            with slim.arg_scope([slim.conv2d], weights_initializer=trunc_normal(0.005),biases_initializer=tf.constant_initializer(0.1)):
-                net = slim.conv2d(net, 4096, [5, 5], padding='VALID', scope='fc6')
-                net = slim.dropout(net, dropout_keep_prob, is_training=is_training, scope='dropout6')
-                net = slim.conv2d(net, 4096, [1, 1], scope='fc7')
-                net = slim.dropout(net, dropout_keep_prob, is_training=is_training, scope='dropout7')
-                net = slim.conv2d(net, num_classes, [1, 1], activation_fn=None, normalizer_fn=None, biases_initializer=tf.zeros_initializer, scope='fc8')
-                net = slim.flatten(net)
-                net = slim.fully_connected(net,64, scope = 'fc')
-                net = slim.fully_connected(net, 13, activation_fn = None, scope = 'output')
-                return net#, end_points
 
-      # Convert end_points_collection into a end_point dict.
-            #end_points = slim.utils.convert_collection_to_dict(end_points_collection)
-            #if spatial_squeeze:
-            #    net = tf.squeeze(net, [], name='fc8/squeezed') ### doesn't like
-            #    end_points[sc.name + '/fc8'] = net
+def network(inputs):
+    '''Define the network'''
+    with slim.arg_scope([slim.conv2d, slim.fully_connected],
+                      activation_fn=tf.nn.relu,
+                      weights_initializer=tf.truncated_normal_initializer(0.0, 0.01),
+                      weights_regularizer=slim.l2_regularizer(0.0005)):
+        net = tf.reshape(inputs,[-1, 512,512,3])
+        net = slim.conv2d(net, 32, [3,3], scope='conv1')
+        net = slim.max_pool2d(net, [4,4], scope = 'conv1')
+        net = slim.conv2d(net,64,[3,3], scope = 'conv2')
+        net = slim.max_pool2d(net,[4,4], scope = 'pool2')
         net = slim.flatten(net)
         net = slim.fully_connected(net,64, scope = 'fc')
         net = slim.fully_connected(net, 13, activation_fn = None, scope = 'output')
-        return net#, end_points
+    return net
 
 def run_training():
 

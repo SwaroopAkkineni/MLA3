@@ -22,16 +22,11 @@ from sklearn import preprocessing
 from scipy import misc
 
 import numpy as np
-import random
 
 from six.moves import xrange  # pylint: disable=redefined-builtin
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 from tensorflow.python.lib.io import file_io
-
-slim = tf.contrib.slim
-trunc_normal = lambda stddev: tf.truncated_normal_initializer(0.0, stddev)
-
 
 
 # Basic model parameters as external flags.
@@ -63,7 +58,7 @@ labelmap = {
 def read_training_list():
     """
     Read <train_data_dir>/TRAIN which containing paths and labels in
-    the format label, channel1 file, channel2 file, channel3
+    the format label, channel1 file, channel2 file, channel3 
     Returns:
         List with all filenames in file image_list_file
     """
@@ -80,37 +75,17 @@ def read_training_list():
         labels.append(onehot)
         #create absolute paths for image files
         filenames.append([ FLAGS.train_data_dir + '/' + c for c in (c1,c2,c3)])
-
+    
     return zip( labels,filenames),n_classes
 
-
+    
 class Fetcher:
     '''Provides batches of images'''
     #TODO TODO - you probably want to modify this to implement data augmentation
     def __init__(self, training_examples):
         self.current = 0
         self.examples = training_examples
-
-    def open_image(self,path):
-        fname =  path.rsplit('/',1)[-1]
-        if path.startswith('gs://'): # check for downloaded file
-            if os.path.exists(fname):
-                path = fname
-        if path.startswith('gs://'):
-          try:
-            f = file_io.FileIO(path,'r')
-          except Exception as e:
-            sys.stderr.write('Retrying after exception reading gcs file: %s\n'%path)
-            f = file_io.FileIO(path,'r')
-          fname =  path.rsplit('/',1)[-1]
-          out = open(fname,'w')
-          out.write(f.read())
-          out.close()
-          #rotaoe90, flip90
-          return open(fname)
-        else:
-          return open(path)
-
+        
     def load_batch(self,batchsize):
         x_batch = []
         y_batch = []
@@ -126,54 +101,30 @@ class Fetcher:
 
         self.current = (self.current + batchsize) % len(self.examples)
         return np.array(x_batch), np.array(y_batch)
+        
 
 def network(inputs):
-#def alexnet_v2(inputs, num_classes=1000,is_training=True,dropout_keep_prob=0.5,spatial_squeeze=True,scope='alexnet_v2'):
-    num_classes=13
-    is_training=True
-    dropout_keep_prob=0.5
-    spatial_squeeze=True
-    scope='alexnet_v2'
-    with tf.variable_scope(scope, 'alexnet_v2', [inputs]) as sc:
-        end_points_collection = sc.name + '_end_points'
-        # Collect outputs for conv2d, fully_connected and max_pool2d.
-        with slim.arg_scope([slim.conv2d, slim.fully_connected, slim.max_pool2d], outputs_collections=[end_points_collection]):
-            net = slim.conv2d(inputs, 64, [11, 11], 4, padding='VALID', scope='conv1')
-            net = slim.max_pool2d(net, [3, 3], 2, scope='pool1')
-            net = slim.conv2d(net, 192, [5, 5], scope='conv2')
-            net = slim.max_pool2d(net, [3, 3], 2, scope='pool2')
-            net = slim.conv2d(net, 384, [3, 3], scope='conv3')
-            net = slim.conv2d(net, 384, [3, 3], scope='conv4')
-            net = slim.conv2d(net, 256, [3, 3], scope='conv5')
-            net = slim.max_pool2d(net, [3, 3], 2, scope='pool5')
-      # Use conv2d instead of fully_connected layers.
-            with slim.arg_scope([slim.conv2d], weights_initializer=trunc_normal(0.005),biases_initializer=tf.constant_initializer(0.1)):
-                net = slim.conv2d(net, 4096, [5, 5], padding='VALID', scope='fc6')
-                net = slim.dropout(net, dropout_keep_prob, is_training=is_training, scope='dropout6')
-                net = slim.conv2d(net, 4096, [1, 1], scope='fc7')
-                net = slim.dropout(net, dropout_keep_prob, is_training=is_training, scope='dropout7')
-                net = slim.conv2d(net, num_classes, [1, 1], activation_fn=None, normalizer_fn=None, biases_initializer=tf.zeros_initializer, scope='fc8')
-                net = slim.flatten(net)
-                net = slim.fully_connected(net,64, scope = 'fc')
-                net = slim.fully_connected(net, 13, activation_fn = None, scope = 'output')
-                return net#, end_points
-
-      # Convert end_points_collection into a end_point dict.
-            #end_points = slim.utils.convert_collection_to_dict(end_points_collection)
-            #if spatial_squeeze:
-            #    net = tf.squeeze(net, [], name='fc8/squeezed') ### doesn't like
-            #    end_points[sc.name + '/fc8'] = net
+    '''Define the network'''
+    with slim.arg_scope([slim.conv2d, slim.fully_connected],
+                      activation_fn=tf.nn.relu,
+                      weights_initializer=tf.truncated_normal_initializer(0.0, 0.01),
+                      weights_regularizer=slim.l2_regularizer(0.0005)):
+        net = tf.reshape(inputs,[-1, 512,512,3])
+        net = slim.conv2d(net, 32, [3,3], scope='conv1')
+        net = slim.max_pool2d(net, [4,4], scope = 'conv1')
+        net = slim.conv2d(net,64,[3,3], scope = 'conv2')
+        net = slim.max_pool2d(net,[4,4], scope = 'pool2')
         net = slim.flatten(net)
         net = slim.fully_connected(net,64, scope = 'fc')
         net = slim.fully_connected(net, 13, activation_fn = None, scope = 'output')
-        return net#, end_points
+    return net
 
 def run_training():
 
   #Read the training data
   examples, n_classes = read_training_list()
   np.random.seed(42) #shuffle the same way each time for consistency
-  np.random.shuffle(examples)
+  np.random.shuffle(examples) 
   # TODO TODO - implement some sort of cross validation
 
   fetcher = Fetcher(examples)
@@ -181,10 +132,10 @@ def run_training():
   # Tell TensorFlow that the model will be built into the default Graph.
   with tf.Graph().as_default():
     # Generate placeholders for the images and labels and mark as input.
-
+    
     x = tf.placeholder(tf.float32, shape=(None, 512,512,3))
     y_ = tf.placeholder(tf.float32, shape=(None, n_classes))
-
+    
     # See "Using instance keys": https://cloud.google.com/ml/docs/how-tos/preparing-models
     # for why we have keys_placeholder
     keys_placeholder = tf.placeholder(tf.int64, shape=(None,))
@@ -247,7 +198,7 @@ def run_training():
       # Fill a feed dictionary with the actual set of images and labels
       # for this particular training step.
       images, labels = fetcher.load_batch(FLAGS.batch_size)
-      feed_dict = {x: images, y_: labels}
+      feed_dict = {x: images, y_: labels} 
 
       # Run one step of the model.  The return values are the activations
       # from the `train_op` (which is discarded) and the `loss` Op.  To
@@ -277,7 +228,7 @@ def run_training():
     #make world readable for submission to evaluation server
     if FLAGS.model_dir.startswith('gs://'):
         subprocess.call(['gsutil', 'acl','ch','-u','AllUsers:R', FLAGS.model_dir])
-
+    
     #You probably want to implement some sort of model evaluation here
     #TODO TODO TODO
 

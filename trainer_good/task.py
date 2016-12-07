@@ -33,7 +33,7 @@ from tensorflow.python.lib.io import file_io
 # Basic model parameters as external flags.
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_integer('max_steps', 10000, 'Number of steps to run trainer.')
+flags.DEFINE_integer('max_steps', 1000, 'Number of steps to run trainer.')
 flags.DEFINE_integer('batch_size', 39, 'Batch size.')
 flags.DEFINE_string('train_data_dir', 'gs://cells-149519-ml/train', 'Directory containing training data')
 flags.DEFINE_string('train_output_dir', 'data', 'Directory to put the training data.')
@@ -115,7 +115,7 @@ class Fetcher:
         while(totalImages < 39):
             label, files = self.examples[(self.current+i) % len(self.examples)]
             label = label.flatten()
-
+            i += 1
             if( labelChecker[np.argmax(label)] >0 ):
                 channels = [ misc.imread(self.open_image(f)) for f in files]
                 rot = random.randint(0,3)
@@ -128,11 +128,10 @@ class Fetcher:
                 if rot == 2:
                 	my_ch = np.rot90(channels,3)
                 if rotFlip == 0:
-                	my_ch1 = np.fliplr(my_ch)
+                	my_ch = np.fliplr(my_ch)
                 x_batch.append(np.dstack(my_ch1))#x_batch.append(np.dstack(channels))
                 y_batch.append(label)
                 totalImages += 1
-                i += 1
                 labelChecker[np.argmax(label)] = labelChecker[np.argmax(label)] - 1
 
         self.current = (self.current + batchsize) % len(self.examples)
