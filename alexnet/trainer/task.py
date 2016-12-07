@@ -114,7 +114,10 @@ class Fetcher:
     def load_batch(self,batchsize):
         x_batch = []
         y_batch = []
-        for i in xrange(batchsize):
+        i = 0  #works
+        totalImages = 0 #works
+        labelChecker = [3] * 13 #works
+        while(i < 39):
             label, files = self.examples[(self.current+i) % len(self.examples)]
             label = label.flatten()
             # If you are getting an error reading the image, you probably have
@@ -123,6 +126,7 @@ class Fetcher:
             channels = [ misc.imread(file_io.FileIO(f,'r')) for f in files]
             x_batch.append(np.dstack(channels))
             y_batch.append(label)
+            i += 1
 
         self.current = (self.current + batchsize) % len(self.examples)
         return np.array(x_batch), np.array(y_batch)
